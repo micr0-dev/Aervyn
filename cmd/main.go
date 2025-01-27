@@ -48,6 +48,12 @@ func main() {
 		r.Get("/", handlers.HomeHandler)
 		r.Post("/posts", handlers.CreatePost)
 		r.Get("/logout", handlers.LogoutHandler)
+		r.Post("/posts/{postID}/like", handlers.LikeHandler)
+		r.Post("/posts/{postID}/unlike", handlers.UnlikeHandler)
+		r.Post("/posts/{postID}/boost", handlers.BoostHandler)
+		r.Post("/posts/{postID}/unboost", handlers.UnboostHandler)
+		r.Get("/posts/{postID}/reply-form", handlers.ReplyFormHandler)
+		r.Post("/posts/{postID}/reply", handlers.ReplyHandler)
 	})
 
 	log.Println("Server starting on http://localhost:8080")

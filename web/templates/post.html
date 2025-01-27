@@ -1,11 +1,71 @@
 {{define "post"}}
-<div class="post">
-    <div class="post-header">
-        <span class="username">@{{.Username}}</span>
-        <span class="timestamp" title="{{.CreatedAt.Format " 2006-01-02 15:04:05"}}">
-            {{formatTime .CreatedAt}}
-        </span>
+<div class="post depth-{{.ReplyDepth}}" id="post-{{.ID}}">
+    {{if .ReplyTo}}
+    <div class="thread-line"></div>
+    {{end}}
+
+    <div class="post-content">
+        <div class="post-header">
+            <span class="username">@{{.Username}}</span>
+            <span class="timestamp" title="{{.CreatedAt.Format " 2006-01-02 15:04:05"}}">
+                {{formatTime .CreatedAt}}
+            </span>
+        </div>
+
+        {{if .ReplyTo}}
+        <div class="reply-to">
+            {{if .ParentPost}}
+            Replying to <a href="#post-{{.ReplyTo}}">@{{.ParentPost.Username}}</a>
+            {{else}}
+            Replying to deleted post
+            {{end}}
+        </div>
+        {{end}}
+
+        <p class="content">{{.Content}}</p>
+
+        <div class="post-actions">
+            <button class="action-btn reply-btn" hx-get="/posts/{{.ID}}/reply-form" hx-target="#reply-area-{{.ID}}"
+                hx-swap="innerHTML">
+                <span class="count">{{.ReplyCount}}</span>
+                Reply
+            </button>
+
+            <button class="action-btn boost-btn {{if .HasBoosted}}active{{end}}"
+                hx-post="/posts/{{.ID}}/{{if .HasBoosted}}unboost{{else}}boost{{end}}" hx-target="#post-{{.ID}}"
+                hx-swap="outerHTML">
+                <span class="count">{{.BoostCount}}</span>
+                {{if .HasBoosted}}
+                Boosted
+                {{else}}
+                Boost
+                {{end}}
+            </button>
+
+            <button class="action-btn like-btn {{if .HasLiked}}active{{end}}"
+                hx-post="/posts/{{.ID}}/{{if .HasLiked}}unlike{{else}}like{{end}}" hx-target="#post-{{.ID}}"
+                hx-swap="outerHTML">
+                <span class="count">{{.LikeCount}}</span>
+                Like
+            </button>
+        </div>
+
+        <div id="reply-area-{{.ID}}" class="reply-area"></div>
     </div>
-    <p class="content">{{.Content}}</p>
+</div>
+{{end}}
+
+{{define "reply-form"}}
+<div class="reply-form">
+    <form hx-post="/posts/{{.ID}}/reply" hx-target="#post-{{.ID}}" hx-swap="afterend">
+        <textarea name="content" placeholder="Write your reply..." required autofocus></textarea>
+        <div class="form-actions">
+            <button type="button" hx-get="/posts/{{.ID}}/reply-form" hx-target="#reply-area-{{.ID}}"
+                hx-swap="innerHTML">
+                Cancel
+            </button>
+            <button type="submit">Reply</button>
+        </div>
+    </form>
 </div>
 {{end}}

@@ -19,11 +19,13 @@ func InitDB() error {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         content TEXT NOT NULL,
+		reply_to TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )
 `)
 
+	// Create users table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
@@ -34,6 +36,38 @@ func InitDB() error {
 		private_key TEXT
 	)
 `)
+	if err != nil {
+		return err
+	}
+
+	// Likes table
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS likes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            post_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(post_id) REFERENCES posts(id),
+            UNIQUE(user_id, post_id)
+        )
+    `)
+	if err != nil {
+		return err
+	}
+
+	// Boosts/Reposts table
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS boosts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            post_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(post_id) REFERENCES posts(id),
+            UNIQUE(user_id, post_id)
+        )
+    `)
 	if err != nil {
 		return err
 	}
