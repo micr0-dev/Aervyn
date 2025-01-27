@@ -1,0 +1,14 @@
+{{ define "content" }}
+<div class="post-form">
+    <form hx-post="/posts" hx-target="#timeline" hx-swap="afterbegin">
+        <textarea name="content" placeholder="What's on your mind?" required></textarea>
+        <button type="submit">Post</button>
+    </form>
+</div>
+
+<div id="timeline">
+    {{ range .Posts }}
+    {{ template "post" . }}
+    {{ end }}
+</div>
+{{ end }}
