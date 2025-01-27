@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"Aervyn/internal/activitypub"
 	"Aervyn/internal/config"
@@ -128,57 +129,60 @@ func OutboxHandler(w http.ResponseWriter, r *http.Request) {
 
 func InboxHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
+	log.Printf("📥 Received inbox request for user: %s", username)
 
-	// Only accept POST requests
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Verify signature
-	if err := activitypub.VerifySignature(r); err != nil {
-		log.Printf("Signature verification failed: %v", err)
-		http.Error(w, "Invalid signature", http.StatusUnauthorized)
-		return
-	}
-
-	// Read body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("❌ Error reading body: %v", err)
 		http.Error(w, "Error reading body", http.StatusBadRequest)
 		return
 	}
+	log.Printf("📨 Received activity: %s", string(body))
 
-	// Parse activity
-	var activity activitypub.Activity
-	if err := json.Unmarshal(body, &activity); err != nil {
+	var incomingActivity struct {
+		Type   string      `json:"type"`
+		Actor  string      `json:"actor"`
+		Object interface{} `json:"object"`
+		ID     string      `json:"id"`
+	}
+	if err := json.Unmarshal(body, &incomingActivity); err != nil {
+		log.Printf("❌ Error parsing activity: %v", err)
 		http.Error(w, "Invalid activity", http.StatusBadRequest)
 		return
 	}
 
-	// Get user
 	user, err := models.GetUserByUsername(username)
 	if err != nil {
+		log.Printf("❌ User not found: %v", err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	// Store activity
-	err = models.StoreInboxActivity(models.Activity{
-		ID:        activity.ID,
+	activity := &models.Activity{
+		ID:        incomingActivity.ID,
 		UserID:    user.ID,
-		Type:      activity.Type,
-		Actor:     activity.Actor,
-		ObjectID:  fmt.Sprintf("%v", activity.Object), // Simple conversion for now
+		Type:      incomingActivity.Type,
+		Actor:     incomingActivity.Actor,
+		ObjectID:  fmt.Sprintf("%v", incomingActivity.Object),
 		RawData:   string(body),
-		CreatedAt: activity.Published,
-	})
-	if err != nil {
+		CreatedAt: time.Now(),
+	}
+
+	// Store activity
+	if err := models.StoreInboxActivity(activity); err != nil {
+		log.Printf("❌ Error storing activity: %v", err)
 		http.Error(w, "Error storing activity", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("✅ Stored or updated activity: %s", activity.ID)
 
-	// Acknowledge receipt
+	// Process the activity regardless of whether it's new or existing
+	if err := activity.ProcessActivity(); err != nil {
+		log.Printf("❌ Error processing activity: %v", err)
+		http.Error(w, "Error processing activity", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("✅ Processed activity successfully")
+
 	w.WriteHeader(http.StatusAccepted)
 }

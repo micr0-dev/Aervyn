@@ -90,5 +90,21 @@ func InitDB() error {
 		return err
 	}
 
+	// Create followers table
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS followers (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		actor TEXT NOT NULL,
+		accepted BOOLEAN DEFAULT FALSE,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(id),
+		UNIQUE(user_id, actor)
+	)
+`)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
