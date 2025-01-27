@@ -6,10 +6,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	_ "github.com/mattn/go-sqlite3"
 
 	"Aervyn/internal/handlers"
+	"Aervyn/internal/middleware"
 	"Aervyn/internal/models"
 )
 
@@ -22,15 +23,32 @@ func main() {
 	r := chi.NewRouter()
 
 	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
+	r.Use(middleware.SessionManager.LoadAndSave)
 
-	// Serve static files
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	// File server for static files
+	fileServer := http.FileServer(http.Dir("web/static"))
+	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
-	// Routes
-	r.Get("/", handlers.HomeHandler)
-	r.Post("/posts", handlers.CreatePost)
+	// Public routes
+	r.Group(func(r chi.Router) {
+		r.Get("/login", handlers.LoginHandler)
+		r.Post("/login", handlers.LoginHandler)
+		r.Get("/register", handlers.RegisterHandler)
+		r.Post("/register", handlers.RegisterHandler)
+		r.Get("/.well-known/webfinger", handlers.WebFingerHandler)
+		r.Get("/users/{username}", handlers.ActorHandler)
+		r.Get("/users/{username}/outbox", handlers.OutboxHandler)
+	})
+
+	// Protected routes
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth)
+		r.Get("/", handlers.HomeHandler)
+		r.Post("/posts", handlers.CreatePost)
+		r.Get("/logout", handlers.LogoutHandler)
+	})
 
 	log.Println("Server starting on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", r))

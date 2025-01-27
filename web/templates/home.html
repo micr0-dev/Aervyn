@@ -1,14 +1,21 @@
-{{ define "content" }}
-<div class="post-form">
-    <form hx-post="/posts" hx-target="#timeline" hx-swap="afterbegin">
-        <textarea name="content" placeholder="What's on your mind?" required></textarea>
-        <button type="submit">Post</button>
-    </form>
-</div>
+{{define "home"}}
+<div class="home-container">
+    <div class="user-bar">
+        <span>Welcome, {{.Username}}</span>
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
 
-<div id="timeline">
-    {{ range .Posts }}
-    {{ template "post" . }}
-    {{ end }}
+    <div class="post-form">
+        <form hx-post="/posts" hx-target="#timeline" hx-swap="afterbegin">
+            <textarea name="content" placeholder="What's on your mind?" required></textarea>
+            <button type="submit">Post</button>
+        </form>
+    </div>
+
+    <div id="timeline">
+        {{range .Posts}}
+        {{template "post" .}}
+        {{end}}
+    </div>
 </div>
-{{ end }}
+{{end}}

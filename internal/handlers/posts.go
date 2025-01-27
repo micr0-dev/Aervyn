@@ -1,26 +1,48 @@
 package handlers
 
 import (
+	"Aervyn/internal/middleware"
 	"Aervyn/internal/models"
-	"html/template"
 	"net/http"
 )
 
-var templates = template.Must(template.ParseGlob("web/templates/*.html"))
-
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.SessionManager.GetString(r.Context(), "userID")
+	if userID == "" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Get posts
 	posts, err := models.GetPosts()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	templates.ExecuteTemplate(w, "layout.html", map[string]interface{}{
-		"Posts": posts,
-	})
+	// Get username for display
+	user, err := models.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	data := map[string]interface{}{
+		"PageTitle": "Home",
+		"Username":  user.Username,
+		"Posts":     posts,
+	}
+
+	renderTemplate(w, "layout.html", data)
 }
 
 func CreatePost(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.SessionManager.GetString(r.Context(), "userID")
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -32,12 +54,12 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	post, err := models.CreatePost(content)
+	post, err := models.CreatePost(content, userID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	// Return just the new post HTML
-	templates.ExecuteTemplate(w, "post.html", post)
+	// Render just the new post
+	renderTemplate(w, "post", post)
 }

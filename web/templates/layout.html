@@ -2,14 +2,20 @@
 <html>
 
 <head>
-    <title>Minimal ActivityPub</title>
+    <title>{{.PageTitle}} - Minimal ActivityPub</title>
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
 <body>
     <div class="container">
-        {{ template "content" . }}
+        {{if eq .PageTitle "Login"}}
+        {{template "login" .}}
+        {{else if eq .PageTitle "Register"}}
+        {{template "register" .}}
+        {{else}}
+        {{template "home" .}}
+        {{end}}
     </div>
 </body>
 
