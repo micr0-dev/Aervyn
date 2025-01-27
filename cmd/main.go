@@ -40,6 +40,7 @@ func main() {
 		r.Get("/.well-known/webfinger", handlers.WebFingerHandler)
 		r.Get("/users/{username}", handlers.ActorHandler)
 		r.Get("/users/{username}/outbox", handlers.OutboxHandler)
+		r.Post("/users/{username}/inbox", handlers.InboxHandler)
 	})
 
 	// Protected routes

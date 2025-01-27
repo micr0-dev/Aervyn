@@ -72,5 +72,23 @@ func InitDB() error {
 		return err
 	}
 
+	// Create inbox_activities table
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS inbox_activities (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            object_id TEXT,
+            raw_data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            processed BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    `)
+	if err != nil {
+		return err
+	}
+
 	return err
 }

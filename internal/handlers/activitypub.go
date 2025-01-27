@@ -3,6 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -122,4 +124,61 @@ func OutboxHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/activity+json")
 	json.NewEncoder(w).Encode(collection)
+}
+
+func InboxHandler(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	// Only accept POST requests
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Verify signature
+	if err := activitypub.VerifySignature(r); err != nil {
+		log.Printf("Signature verification failed: %v", err)
+		http.Error(w, "Invalid signature", http.StatusUnauthorized)
+		return
+	}
+
+	// Read body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading body", http.StatusBadRequest)
+		return
+	}
+
+	// Parse activity
+	var activity activitypub.Activity
+	if err := json.Unmarshal(body, &activity); err != nil {
+		http.Error(w, "Invalid activity", http.StatusBadRequest)
+		return
+	}
+
+	// Get user
+	user, err := models.GetUserByUsername(username)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Store activity
+	err = models.StoreInboxActivity(models.Activity{
+		ID:        activity.ID,
+		UserID:    user.ID,
+		Type:      activity.Type,
+		Actor:     activity.Actor,
+		ObjectID:  fmt.Sprintf("%v", activity.Object), // Simple conversion for now
+		RawData:   string(body),
+		CreatedAt: activity.Published,
+	})
+	if err != nil {
+		http.Error(w, "Error storing activity", http.StatusInternalServerError)
+		return
+	}
+
+	// Acknowledge receipt
+	w.WriteHeader(http.StatusAccepted)
 }

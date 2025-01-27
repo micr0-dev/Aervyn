@@ -33,7 +33,7 @@ type OrderedCollection struct {
 }
 
 type Activity struct {
-	Context   interface{} `json:"@context,omitempty"`
+	Context   interface{} `json:"@context"`
 	ID        string      `json:"id"`
 	Type      string      `json:"type"`
 	Actor     string      `json:"actor"`
