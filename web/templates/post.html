@@ -6,7 +6,15 @@
 
     <div class="post-content">
         <div class="post-header">
-            <span class="username">@{{.Username}}</span>
+            <div class="author">
+                <span class="username">
+                    @{{.Author.Username}}
+                    {{if .Author.Domain}}@{{.Author.Domain}}{{end}}
+                </span>
+                {{if .Author.DisplayName}}
+                <span class="display-name">{{.Author.DisplayName}}</span>
+                {{end}}
+            </div>
             <span class="timestamp" title="{{.CreatedAt.Format " 2006-01-02 15:04:05"}}">
                 {{formatTime .CreatedAt}}
             </span>
@@ -22,7 +30,7 @@
         </div>
         {{end}}
 
-        <p class="content">{{.Content}}</p>
+        <p class="content">{{sanitize .Content}}</p>
 
         <div class="post-actions">
             <button class="action-btn reply-btn" hx-get="/posts/{{.ID}}/reply-form" hx-target="#reply-area-{{.ID}}"

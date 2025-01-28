@@ -55,6 +55,10 @@ func main() {
 		r.Post("/posts/{postID}/unboost", handlers.UnboostHandler)
 		r.Get("/posts/{postID}/reply-form", handlers.ReplyFormHandler)
 		r.Post("/posts/{postID}/reply", handlers.ReplyHandler)
+		r.Get("/remote/lookup", handlers.LookupHandler)
+		r.Get("/@{identifier}", handlers.ProfileHandler)
+		r.Get("/profile/edit", handlers.ProfileEditHandler)
+		r.Put("/profile", handlers.ProfileUpdateHandler)
 	})
 
 	log.Println("Server starting on http://localhost:8080")

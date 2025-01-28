@@ -1,0 +1,29 @@
+{{define "profile"}}
+<div class="profile">
+    <div class="profile-header">
+        <h2>
+            @{{.Username}}
+            {{if .Domain}}
+            @{{.Domain}}
+            {{end}}
+        </h2>
+        {{if .DisplayName}}
+        <h3>{{.DisplayName}}</h3>
+        {{end}}
+    </div>
+
+    {{if .Bio}}
+    <div class="bio">
+        {{.Bio}}
+    </div>
+    {{end}}
+
+    <div class="actions">
+        {{if not .IsLocal}}
+        <button class="follow-btn" hx-post="/remote/follow" hx-vals='{"profile": "{{.ID}}"}' hx-swap="outerHTML">
+            Follow
+        </button>
+        {{end}}
+    </div>
+</div>
+{{end}}

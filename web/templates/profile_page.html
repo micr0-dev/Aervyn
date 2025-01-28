@@ -1,0 +1,41 @@
+{{define "profile-page"}}
+<div id="profile-content"> <!-- Move the ID here -->
+    <div class="profile-page">
+        <div class="profile-header">
+            <h1>
+                @{{.Profile.Username}}
+                {{if .Profile.Domain}}
+                @{{.Profile.Domain}}
+                {{end}}
+            </h1>
+
+            {{if .Profile.DisplayName}}
+            <h2>{{.Profile.DisplayName}}</h2>
+            {{end}}
+
+            {{if .Profile.Bio}}
+            <div class="bio">{{sanitize .Profile.Bio}}</div>
+            {{end}}
+
+            <div class="profile-actions">
+                {{if eq .Profile.ID .CurrentUserID}}
+                <button hx-get="/profile/edit" hx-target="#profile-content" hx-swap="outerHTML">
+                    Edit Profile
+                </button>
+                {{else}}
+                <button class="follow-btn" hx-post="/remote/follow" hx-vals='{"profile": "{{.Profile.ID}}"}'
+                    hx-swap="outerHTML">
+                    Follow
+                </button>
+                {{end}}
+            </div>
+        </div>
+
+        <div class="profile-posts">
+            {{range .Posts}}
+            {{template "post" .}}
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

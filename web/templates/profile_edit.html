@@ -1,0 +1,25 @@
+{{define "profile_edit"}}
+<div id="profile-content">
+    <div class="profile-edit">
+        <h2>Edit Profile</h2>
+        <form hx-put="/profile" hx-target="#profile-content" hx-swap="outerHTML">
+            <div class="form-group">
+                <label for="displayName">Display Name</label>
+                <input type="text" id="displayName" name="displayName" value="{{.Profile.DisplayName}}">
+            </div>
+
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" rows="4">{{.Profile.Bio}}</textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" hx-get="/@{{.Profile.Username}}" hx-target="#profile-content" hx-swap="outerHTML">
+                    Cancel
+                </button>
+                <button type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"Aervyn/internal/utils"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,6 +14,7 @@ var templates *template.Template
 func init() {
 	funcMap := template.FuncMap{
 		"formatTime": formatTime,
+		"sanitize":   utils.SanitizeHTML,
 	}
 
 	templates = template.Must(template.New("").Funcs(funcMap).ParseGlob("web/templates/*.html"))

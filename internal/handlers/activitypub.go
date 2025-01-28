@@ -86,7 +86,7 @@ func OutboxHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user's posts and convert them to activities
-	posts, err := models.GetPostsByUser(user.ID)
+	posts, err := models.GetPostsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

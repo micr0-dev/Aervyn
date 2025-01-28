@@ -13,8 +13,10 @@
         {{template "login" .}}
         {{else if eq .PageTitle "Register"}}
         {{template "register" .}}
-        {{else}}
+        {{else if eq .PageTitle "Home"}}
         {{template "home" .}}
+        {{else}}
+        {{template "profile-page" .}}
         {{end}}
     </div>
 </body>

@@ -4,7 +4,13 @@
         <span>Welcome, {{.Username}}</span>
         <a href="/logout" class="logout-btn">Logout</a>
     </div>
-
+    <div class="remote-lookup">
+        <form hx-get="/remote/lookup" hx-target="#remote-results" hx-trigger="submit">
+            <input type="text" name="query" placeholder="username@instance.com" required>
+            <button type="submit">Look up</button>
+        </form>
+        <div id="remote-results"></div>
+    </div>
     <div class="post-form">
         <form hx-post="/posts" hx-target="#timeline" hx-swap="afterbegin">
             <textarea name="content" placeholder="What's on your mind?" required></textarea>

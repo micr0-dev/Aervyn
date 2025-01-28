@@ -13,12 +13,14 @@ import (
 )
 
 type User struct {
-	ID         string
-	Username   string
-	Password   string
-	PublicKey  string
-	PrivateKey string
-	CreatedAt  time.Time
+	ID          string
+	Username    string
+	DisplayName string
+	Bio         string
+	Password    string
+	PublicKey   string
+	PrivateKey  string
+	CreatedAt   time.Time
 }
 
 func CreateUser(username, password string) (*User, error) {
@@ -55,6 +57,15 @@ func CreateUser(username, password string) (*User, error) {
 	}
 
 	return &User{ID: id, Username: username}, nil
+}
+
+func (u *User) UpdateProfile(displayName, bio string) error {
+	_, err := db.Exec(`
+        UPDATE users 
+        SET display_name = ?, bio = ?
+        WHERE id = ?
+    `, displayName, bio, u.ID)
+	return err
 }
 
 func GetUserByUsername(username string) (*User, error) {

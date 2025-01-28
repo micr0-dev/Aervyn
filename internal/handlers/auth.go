@@ -3,7 +3,6 @@ package handlers
 import (
 	"Aervyn/internal/middleware"
 	"Aervyn/internal/models"
-	"log"
 	"net/http"
 )
 
@@ -12,7 +11,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
 			"PageTitle": "Login",
 		}
-		log.Printf("Rendering login page")
 		renderTemplate(w, "layout.html", data)
 		return
 	}
@@ -39,7 +37,6 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
 			"PageTitle": "Register",
 		}
-		log.Printf("Rendering register page")
 		renderTemplate(w, "layout.html", data)
 		return
 	}

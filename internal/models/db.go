@@ -30,6 +30,8 @@ func InitDB() error {
 	CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
 		username TEXT UNIQUE NOT NULL,
+		display_name TEXT,
+		bio TEXT,
 		password TEXT NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		public_key TEXT,

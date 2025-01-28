@@ -9,22 +9,28 @@ import (
 )
 
 type Post struct {
-	ID        string
-	UserID    string
-	Username  string
-	Content   string
-	CreatedAt time.Time
-	ReplyTo   *string
+	ID        string    `json:"id"`
+	UserID    string    `json:"-"`
+	Username  string    `json:"-"`
+	Content   string    `json:"content"`
+	AuthorID  string    `json:"attributedTo"`
+	Author    Profile   `json:"author,omitempty"`
+	CreatedAt time.Time `json:"published"`
+	ReplyTo   *string   `json:"inReplyTo,omitempty"`
+	URL       string    `json:"url"`
+	IsLocal   bool      `json:"-"`
 
-	ReplyDepth int
-	ParentPost *Post
+	ReplyDepth int   `json:"-"`
+	ParentPost *Post `json:"-"`
 
-	LikeCount  int
-	BoostCount int
-	ReplyCount int
+	// Interaction counts
+	LikeCount  int `json:"likes"`
+	BoostCount int `json:"shares"`
+	ReplyCount int `json:"replies"`
 
-	HasLiked   bool
-	HasBoosted bool
+	// Current user's interactions
+	HasLiked   bool `json:"hasLiked"`
+	HasBoosted bool `json:"hasBoosted"`
 }
 
 func GetPosts() ([]Post, error) {
@@ -183,20 +189,62 @@ func GetPost(id string) (*Post, error) {
 	return &p, nil
 }
 
-func GetPostsByUser(userID string) ([]Post, error) {
-	rows, err := db.Query(`
-        SELECT 
-            p.id, 
-            p.user_id, 
-            u.username, 
-            p.content, 
-            p.created_at 
-        FROM posts p 
-        JOIN users u ON p.user_id = u.id 
-        WHERE p.user_id = ?
-        ORDER BY p.created_at DESC
-        LIMIT 20
-    `, userID)
+func GetPostsByUserID(userID string) ([]Post, error) {
+	query := `
+        WITH RECURSIVE thread_posts AS (
+    -- Get root posts (non-replies) from the user
+    SELECT 
+        p.id, 
+        p.user_id, 
+        u.username, 
+        p.content, 
+        p.created_at, 
+        p.reply_to,
+        0 as depth,
+        p.created_at as thread_start,
+        p.id as root_id,
+        CAST(printf('%020d', p.id) AS TEXT) as path
+    FROM posts p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.reply_to IS NULL 
+    AND p.user_id = ?  -- Add this condition for user's root posts
+    
+    UNION ALL
+    
+    -- Get replies recursively (including replies to this user's posts)
+    SELECT 
+        p.id, 
+        p.user_id, 
+        u.username, 
+        p.content, 
+        p.created_at, 
+        p.reply_to,
+        tp.depth + 1,
+        tp.thread_start,
+        tp.root_id,
+        tp.path || '.' || printf('%020d', p.id)
+    FROM posts p
+    JOIN users u ON p.user_id = u.id
+    JOIN thread_posts tp ON p.reply_to = tp.id
+)
+SELECT 
+    id, user_id, username, content, created_at, reply_to, depth,
+    (SELECT COUNT(*) FROM likes WHERE post_id = thread_posts.id) as like_count,
+    (SELECT COUNT(*) FROM boosts WHERE post_id = thread_posts.id) as boost_count,
+    (SELECT COUNT(*) FROM posts WHERE reply_to = thread_posts.id) as reply_count
+FROM thread_posts
+WHERE 
+    user_id = ? OR  -- Show user's posts
+    root_id IN (    -- And complete threads of posts they replied to
+        SELECT id FROM posts WHERE user_id = ?
+    )
+ORDER BY 
+    thread_start DESC, -- Order threads by root post time
+    path ASC          -- Maintain reply hierarchy within thread
+LIMIT 100
+    `
+
+	rows, err := db.Query(query, userID, userID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +256,8 @@ func GetPostsByUser(userID string) ([]Post, error) {
 		var replyTo sql.NullString
 		err := rows.Scan(
 			&p.ID,
-			&p.UserID,
-			&p.Username,
+			&p.AuthorID,
+			&p.Author.Username,
 			&p.Content,
 			&p.CreatedAt,
 			&replyTo,
@@ -226,6 +274,7 @@ func GetPostsByUser(userID string) ([]Post, error) {
 			p.ReplyTo = &replyTo.String
 		}
 
+		p.IsLocal = true
 		posts = append(posts, p)
 	}
 
