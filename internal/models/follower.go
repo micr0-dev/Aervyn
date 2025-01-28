@@ -21,7 +21,7 @@ func CreateFollowRequest(userID, actor string) error {
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(user_id, actor) DO UPDATE SET
         accepted = FALSE
-    `, followID, userID, actor, false, time.Now())
+    `, followID, userID, actor, true, time.Now())
 
 	return err
 }
@@ -64,5 +64,52 @@ func RejectFollowRequest(id string) error {
         DELETE FROM followers
         WHERE id = ?
     `, id)
+	return err
+}
+
+// Check if user is following another user
+func IsFollowing(userID, actor string) (bool, error) {
+	var exists bool
+	err := db.QueryRow(`
+        SELECT EXISTS(
+            SELECT 1 FROM followers 
+            WHERE user_id = ? 
+            AND actor = ? 
+            AND accepted = true
+        )
+    `, userID, actor).Scan(&exists)
+	return exists, err
+}
+
+// Get followers count
+func GetFollowerCount(actor string) (int, error) {
+	var count int
+	err := db.QueryRow(`
+        SELECT COUNT(*) 
+        FROM followers 
+        WHERE actor = ? 
+        AND accepted = true
+    `, actor).Scan(&count)
+	return count, err
+}
+
+// Get following count
+func GetFollowingCount(userID string) (int, error) {
+	var count int
+	err := db.QueryRow(`
+        SELECT COUNT(*) 
+        FROM followers 
+        WHERE user_id = ? 
+        AND accepted = true
+    `, userID).Scan(&count)
+	return count, err
+}
+
+// Unfollow a user
+func Unfollow(userID, actor string) error {
+	_, err := db.Exec(`
+        DELETE FROM followers
+        WHERE user_id = ? AND actor = ?
+    `, userID, actor)
 	return err
 }

@@ -59,6 +59,10 @@ func main() {
 		r.Get("/@{identifier}", handlers.ProfileHandler)
 		r.Get("/profile/edit", handlers.ProfileEditHandler)
 		r.Put("/profile", handlers.ProfileUpdateHandler)
+		r.Post("/follow/{username}", handlers.FollowHandler)
+		r.Delete("/follow/{username}", handlers.UnfollowHandler)
+		r.Get("/timeline/following", handlers.FollowingTimelineHandler)
+		r.Get("/timeline/local", handlers.LocalTimelineHandler)
 	})
 
 	log.Println("Server starting on http://localhost:8080")

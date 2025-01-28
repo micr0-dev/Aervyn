@@ -39,7 +39,7 @@ func GetProfileByUsername(username string) (*Profile, error) {
             created_at,
             public_key
         FROM users 
-        WHERE username = ?
+        WHERE LOWER(username) = LOWER(?)
     `, username).Scan(
 		&profile.ID,
 		&profile.Username,

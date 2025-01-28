@@ -1,0 +1,11 @@
+{{define "timeline"}}
+<div class="posts">
+    {{range .Posts}}
+    {{template "post" .}}
+    {{else}}
+    <div class="no-posts">
+        No posts to show
+    </div>
+    {{end}}
+</div>
+{{end}}

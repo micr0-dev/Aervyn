@@ -7,28 +7,17 @@
     <div class="post-content">
         <div class="post-header">
             <div class="author">
-                <span class="username">
-                    @{{.Author.Username}}
-                    {{if .Author.Domain}}@{{.Author.Domain}}{{end}}
-                </span>
-                {{if .Author.DisplayName}}
-                <span class="display-name">{{.Author.DisplayName}}</span>
-                {{end}}
+                <a href="/@{{.Author.Username}}" class="author-link">
+                    {{if .Author.DisplayName}}
+                    <span class="display-name">{{.Author.DisplayName}}</span>
+                    {{end}}
+                    <span class="username">@{{.Author.Username}}</span>
+                </a>
             </div>
             <span class="timestamp" title="{{.CreatedAt.Format " 2006-01-02 15:04:05"}}">
                 {{formatTime .CreatedAt}}
             </span>
         </div>
-
-        {{if .ReplyTo}}
-        <div class="reply-to">
-            {{if .ParentPost}}
-            Replying to <a href="#post-{{.ReplyTo}}">@{{.ParentPost.Username}}</a>
-            {{else}}
-            Replying to deleted post
-            {{end}}
-        </div>
-        {{end}}
 
         <p class="content">{{sanitize .Content}}</p>
 

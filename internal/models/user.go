@@ -71,7 +71,7 @@ func (u *User) UpdateProfile(displayName, bio string) error {
 func GetUserByUsername(username string) (*User, error) {
 	var user User
 	err := db.QueryRow(
-		"SELECT id, username, password FROM users WHERE username = ?",
+		"SELECT id, username, password FROM users WHERE LOWER(username) = LOWER(?)",
 		username,
 	).Scan(&user.ID, &user.Username, &user.Password)
 	if err != nil {

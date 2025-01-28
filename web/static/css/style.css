@@ -546,3 +546,65 @@ body {
 .post .content a:hover {
     text-decoration: underline;
 }
+
+.timeline-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+}
+
+.tab-btn.active {
+    color: #1a73e8;
+    border-bottom: 2px solid #1a73e8;
+}
+
+.post .author {
+    display: flex;
+    flex-direction: column;
+}
+
+.post .author .display-name {
+    font-weight: bold;
+    color: #333;
+}
+
+.post .author .username {
+    color: #666;
+    text-decoration: none;
+}
+
+.post .author .username:hover {
+    text-decoration: underline;
+}
+
+.author-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+}
+
+.author-link:hover .username {
+    text-decoration: underline;
+    color: #1a73e8;
+}
+
+.profile-link {
+    text-decoration: none;
+    color: #1a73e8;
+}
+
+.profile-link:hover {
+    text-decoration: underline;
+}

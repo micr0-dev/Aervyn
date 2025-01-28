@@ -1,5 +1,5 @@
 {{define "profile-page"}}
-<div id="profile-content"> <!-- Move the ID here -->
+<div id="profile-content">
     <div class="profile-page">
         <div class="profile-header">
             <h1>
@@ -17,16 +17,30 @@
             <div class="bio">{{sanitize .Profile.Bio}}</div>
             {{end}}
 
+            <div class="profile-stats">
+                <span>{{.FollowerCount}} followers</span>
+                <span>{{.FollowingCount}} following</span>
+            </div>
+
             <div class="profile-actions">
                 {{if eq .Profile.ID .CurrentUserID}}
                 <button hx-get="/profile/edit" hx-target="#profile-content" hx-swap="outerHTML">
                     Edit Profile
                 </button>
                 {{else}}
-                <button class="follow-btn" hx-post="/remote/follow" hx-vals='{"profile": "{{.Profile.ID}}"}'
-                    hx-swap="outerHTML">
+                {{if .IsFollowing}}
+                <button class="unfollow-btn"
+                    hx-delete="/follow/@{{.Profile.Username}}{{if .Profile.Domain}}@{{.Profile.Domain}}{{end}}"
+                    hx-target="this" hx-swap="outerHTML">
+                    Unfollow
+                </button>
+                {{else}}
+                <button class="follow-btn"
+                    hx-post="/follow/@{{.Profile.Username}}{{if .Profile.Domain}}@{{.Profile.Domain}}{{end}}"
+                    hx-target="this" hx-swap="outerHTML">
                     Follow
                 </button>
+                {{end}}
                 {{end}}
             </div>
         </div>

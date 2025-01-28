@@ -15,21 +15,6 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	posts, err := models.GetPosts()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Load user interactions for each post
-	for i := range posts {
-		err = posts[i].LoadUserInteractions(userID)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-	}
-
 	user, err := models.GetUserByID(userID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -37,9 +22,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"PageTitle": "Home",
-		"Username":  user.Username,
-		"Posts":     posts,
+		"PageTitle":     "Home",
+		"Username":      user.Username,
+		"CurrentUserID": userID,
 	}
 
 	renderTemplate(w, "layout.html", data)

@@ -1,27 +1,26 @@
 {{define "home"}}
 <div class="home-container">
     <div class="user-bar">
-        <span>Welcome, {{.Username}}</span>
-        <a href="/logout" class="logout-btn">Logout</a>
-    </div>
-    <div class="remote-lookup">
-        <form hx-get="/remote/lookup" hx-target="#remote-results" hx-trigger="submit">
-            <input type="text" name="query" placeholder="username@instance.com" required>
-            <button type="submit">Look up</button>
-        </form>
-        <div id="remote-results"></div>
+        <span>Welcome, <a href="/@{{.Username}}" class="profile-link">@{{.Username}}</a></span> <a href="/logout"
+            class="logout-btn">Logout</a>
     </div>
     <div class="post-form">
-        <form hx-post="/posts" hx-target="#timeline" hx-swap="afterbegin">
+        <form hx-post="/posts" hx-target="#timeline-content" hx-swap="afterbegin">
             <textarea name="content" placeholder="What's on your mind?" required></textarea>
             <button type="submit">Post</button>
         </form>
     </div>
 
-    <div class="timeline" id="timeline">
-        {{range .Posts}}
-        {{template "post" .}}
-        {{end}}
+    <div class="timeline">
+        <div class="timeline-tabs">
+            <button class="tab-btn" hx-get="/timeline/following" hx-target="#timeline-content"
+                hx-trigger="click, load">Following</button>
+            <button class="tab-btn" hx-get="/timeline/local" hx-target="#timeline-content">Local</button>
+        </div>
+
+        <div id="timeline-content">
+            <!-- Posts will be loaded here -->
+        </div>
     </div>
 </div>
 {{end}}

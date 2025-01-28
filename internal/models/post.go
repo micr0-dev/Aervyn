@@ -2,7 +2,11 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,7 +37,7 @@ type Post struct {
 	HasBoosted bool `json:"hasBoosted"`
 }
 
-func GetPosts() ([]Post, error) {
+func GetLocalTimeline() ([]Post, error) {
 	query := `
         WITH RECURSIVE thread_posts AS (
             -- Get root posts (non-replies)
@@ -77,11 +81,317 @@ func GetPosts() ([]Post, error) {
             (SELECT COUNT(*) FROM posts WHERE reply_to = thread_posts.id) as reply_count
         FROM thread_posts
         ORDER BY 
-            thread_start DESC, -- Order threads by root post time
-            path ASC          -- Maintain reply hierarchy within thread
-        LIMIT 100
+            thread_start DESC,
+            path ASC
+        LIMIT 50
     `
-	rows, err := db.Query(query)
+
+	return getPostsFromQuery(query)
+}
+
+type PostWithContext struct {
+	Post       Post
+	ParentID   *string
+	RootID     string
+	ThreadTime time.Time
+}
+
+func GetFollowingTimeline(userID string) ([]Post, error) {
+	// FIXME: Make this much better by actually sorting and timelining the posts correctly
+
+	// First get local posts from followed users
+	localPosts, err := getLocalFollowingPosts(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get list of remote users we follow
+	remoteFollows, err := getRemoteFollows(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch remote posts
+	var remotePosts []Post
+	for _, follow := range remoteFollows {
+		posts, err := fetchRemoteUserPosts(follow.Actor)
+		if err != nil {
+			log.Printf("Error fetching posts from %s: %v", follow.Actor, err)
+			continue // Skip this user if there's an error
+		}
+		remotePosts = append(remotePosts, posts...)
+	}
+
+	// Merge all posts
+	allPosts := append(localPosts, remotePosts...)
+
+	// Create a map of posts by ID for quick lookup
+	postMap := make(map[string]Post)
+	for _, post := range allPosts {
+		postMap[post.ID] = post
+	}
+
+	// Create posts with context and find root posts for threads
+	var postsWithContext []PostWithContext
+	for _, post := range allPosts {
+		ctx := PostWithContext{
+			Post:       post,
+			ThreadTime: post.CreatedAt,
+		}
+
+		if post.ReplyTo != nil {
+			ctx.ParentID = post.ReplyTo
+			// Find the root post
+			currentID := *post.ReplyTo
+			for i := 0; i < 10; i++ { // Limit depth to prevent infinite loops
+				if parent, ok := postMap[currentID]; ok {
+					if parent.ReplyTo == nil {
+						ctx.RootID = parent.ID
+						ctx.ThreadTime = parent.CreatedAt
+						break
+					}
+					currentID = *parent.ReplyTo
+				} else {
+					break
+				}
+			}
+		} else {
+			ctx.RootID = post.ID
+		}
+
+		postsWithContext = append(postsWithContext, ctx)
+	}
+
+	// Sort posts
+	sort.Slice(postsWithContext, func(i, j int) bool {
+		postI := postsWithContext[i]
+		postJ := postsWithContext[j]
+
+		// If one post is a reply and its parent is nearby (within last 10 posts)
+		if postI.ParentID != nil {
+			parentIndex := -1
+			for k := j; k < len(postsWithContext) && k < j+10; k++ {
+				if postsWithContext[k].Post.ID == *postI.ParentID {
+					parentIndex = k
+					break
+				}
+			}
+			if parentIndex != -1 {
+				return false // Keep reply after its parent
+			}
+		}
+
+		if postJ.ParentID != nil {
+			parentIndex := -1
+			for k := i; k < len(postsWithContext) && k < i+10; k++ {
+				if postsWithContext[k].Post.ID == *postJ.ParentID {
+					parentIndex = k
+					break
+				}
+			}
+			if parentIndex != -1 {
+				return true // Keep reply after its parent
+			}
+		}
+
+		// If posts are in the same thread and close in time
+		if postI.RootID == postJ.RootID {
+			timeDiff := postI.Post.CreatedAt.Sub(postJ.Post.CreatedAt)
+			if timeDiff.Hours() < 24 { // Within 24 hours
+				// Sort by thread position
+				return postI.Post.CreatedAt.Before(postJ.Post.CreatedAt)
+			}
+		}
+
+		// Default to chronological order
+		return postI.Post.CreatedAt.After(postJ.Post.CreatedAt)
+	})
+
+	// Convert back to regular posts
+	sortedPosts := make([]Post, len(postsWithContext))
+	for i, pc := range postsWithContext {
+		sortedPosts[i] = pc.Post
+	}
+
+	return sortedPosts, nil
+}
+
+func getLocalFollowingPosts(userID string) ([]Post, error) {
+	query := `
+        WITH RECURSIVE thread_posts AS (
+            SELECT 
+                p.id, 
+                p.user_id, 
+                u.username, 
+                p.content, 
+                p.created_at, 
+                p.reply_to,
+                0 as depth,
+                p.created_at as thread_start,
+                p.id as root_id,
+                CAST(printf('%020d', p.id) AS TEXT) as path
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            JOIN followers f ON p.user_id = f.actor
+            WHERE p.reply_to IS NULL
+            AND f.user_id = ?
+            AND f.accepted = true
+            
+            UNION ALL
+            
+            SELECT 
+                p.id, 
+                p.user_id, 
+                u.username, 
+                p.content, 
+                p.created_at, 
+                p.reply_to,
+                tp.depth + 1,
+                tp.thread_start,
+                tp.root_id,
+                tp.path || '.' || printf('%020d', p.id)
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            JOIN thread_posts tp ON p.reply_to = tp.id
+        )
+        SELECT 
+            id, user_id, username, content, created_at, reply_to, depth,
+            (SELECT COUNT(*) FROM likes WHERE post_id = thread_posts.id) as like_count,
+            (SELECT COUNT(*) FROM boosts WHERE post_id = thread_posts.id) as boost_count,
+            (SELECT COUNT(*) FROM posts WHERE reply_to = thread_posts.id) as reply_count
+        FROM thread_posts
+        ORDER BY 
+            thread_start DESC,
+            path ASC
+    `
+	return getPostsFromQuery(query, userID)
+}
+
+func getRemoteFollows(userID string) ([]Follower, error) {
+	rows, err := db.Query(`
+        SELECT id, user_id, actor, accepted, created_at
+        FROM followers
+        WHERE user_id = ?
+        AND accepted = true
+        AND actor LIKE 'http%'
+    `, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var follows []Follower
+	for rows.Next() {
+		var f Follower
+		err := rows.Scan(&f.ID, &f.UserID, &f.Actor, &f.Accepted, &f.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		follows = append(follows, f)
+	}
+	return follows, nil
+}
+
+func fetchRemoteUserPosts(actorURI string) ([]Post, error) {
+	// First fetch the user's outbox URL
+	profile, err := FetchRemoteProfile(actorURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch profile: %w", err)
+	}
+
+	// Make request to outbox
+	req, err := http.NewRequest("GET", profile.OutboxURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/activity+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Parse the outbox response
+	var outbox struct {
+		First string            `json:"first"`
+		Items []json.RawMessage `json:"orderedItems"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&outbox); err != nil {
+		return nil, err
+	}
+
+	// If we got a "first" URL, fetch that page
+	if outbox.First != "" && len(outbox.Items) == 0 {
+		req, err = http.NewRequest("GET", outbox.First, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/activity+json")
+
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if err := json.NewDecoder(resp.Body).Decode(&outbox); err != nil {
+			return nil, err
+		}
+	}
+
+	var posts []Post
+	replyMap := make(map[string]*Post) // Map to store posts by ID for reply linking
+
+	for _, item := range outbox.Items {
+		var activity struct {
+			Type   string          `json:"type"`
+			Object json.RawMessage `json:"object"`
+		}
+		if err := json.Unmarshal(item, &activity); err != nil {
+			continue
+		}
+
+		var postContent struct {
+			ID           string    `json:"id"`
+			Type         string    `json:"type"`
+			Content      string    `json:"content"`
+			Published    time.Time `json:"published"`
+			InReplyTo    *string   `json:"inReplyTo"`
+			AttributedTo string    `json:"attributedTo"`
+		}
+		if activity.Type == "Create" {
+			if err := json.Unmarshal(activity.Object, &postContent); err != nil {
+				continue
+			}
+		} else {
+			if err := json.Unmarshal(item, &postContent); err != nil {
+				continue
+			}
+		}
+
+		if postContent.Type != "Note" {
+			continue
+		}
+
+		post := Post{
+			ID:        postContent.ID,
+			Content:   postContent.Content,
+			CreatedAt: postContent.Published,
+			Author:    *profile,
+			IsLocal:   false,
+			ReplyTo:   postContent.InReplyTo,
+		}
+
+		posts = append(posts, post)
+		replyMap[post.ID] = &posts[len(posts)-1]
+	}
+
+	return posts, nil
+}
+
+func getPostsFromQuery(query string, args ...interface{}) ([]Post, error) {
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +403,8 @@ func GetPosts() ([]Post, error) {
 		var replyTo sql.NullString
 		err := rows.Scan(
 			&p.ID,
-			&p.UserID,
-			&p.Username,
+			&p.AuthorID,
+			&p.Author.Username,
 			&p.Content,
 			&p.CreatedAt,
 			&replyTo,
@@ -111,6 +421,12 @@ func GetPosts() ([]Post, error) {
 			p.ReplyTo = &replyTo.String
 		}
 
+		author, err := GetProfileByID(p.AuthorID)
+		if err != nil {
+			return nil, err
+		}
+		p.Author = *author
+
 		posts = append(posts, p)
 	}
 
@@ -122,6 +438,7 @@ func GetPosts() ([]Post, error) {
 			}
 		}
 	}
+
 	return posts, nil
 }
 

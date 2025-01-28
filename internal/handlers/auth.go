@@ -3,6 +3,7 @@ package handlers
 import (
 	"Aervyn/internal/middleware"
 	"Aervyn/internal/models"
+	"Aervyn/internal/utils"
 	"net/http"
 )
 
@@ -45,7 +46,16 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	_, err := models.CreateUser(username, password)
+	normalized, err := utils.ValidateAndNormalizeUsername(username)
+	if err != nil {
+		data := map[string]interface{}{
+			"Error": err.Error(),
+		}
+		renderTemplate(w, "register", data)
+		return
+	}
+
+	_, err = models.CreateUser(normalized, password)
 	if err != nil {
 		renderTemplate(w, "layout.html", map[string]interface{}{
 			"PageTitle": "Register",

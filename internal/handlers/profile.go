@@ -10,17 +10,21 @@ import (
 
 	"Aervyn/internal/middleware"
 	"Aervyn/internal/models"
+	"Aervyn/internal/utils"
 )
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the profile identifier from the URL (e.g., "micr0" or "gargron@mastodon.social")
 	identifier := chi.URLParam(r, "identifier")
-	identifier = strings.TrimPrefix(identifier, "@") // Remove @ if present
-
+	identifier, err := utils.ValidateAndNormalizeUsername(identifier)
+	if err != nil {
+		log.Printf("Invalid username format: %v", err)
+		http.Error(w, "Invalid username format", http.StatusBadRequest)
+		return
+	}
 	log.Printf("Looking up profile: %s", identifier)
 
 	var profile *models.Profile
-	var err error
 
 	currentUserID := middleware.SessionManager.GetString(r.Context(), "userID")
 
@@ -59,6 +63,27 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get follower and following count
+	followerCount, err := models.GetFollowerCount(profile.ID)
+	if err != nil {
+		log.Printf("Failed to get follower count: %v", err)
+		followerCount = 0
+	}
+
+	followingCount, err := models.GetFollowingCount(profile.ID)
+	if err != nil {
+		log.Printf("Failed to get following count: %v", err)
+		followingCount = 0
+	}
+
+	var isFollowing bool
+	if currentUserID != "" {
+		isFollowing, err = models.IsFollowing(currentUserID, profile.ID)
+		if err != nil {
+			log.Printf("Failed to check following status: %v", err)
+			isFollowing = false
+		}
+	}
 	// Get posts for the profile
 	posts, err := models.GetPostsForProfile(profile)
 	if err != nil {
@@ -68,10 +93,13 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Profile":       profile,
-		"Posts":         posts,
-		"PageTitle":     fmt.Sprintf("@%s", profile.Username),
-		"CurrentUserID": currentUserID,
+		"Profile":        profile,
+		"Posts":          posts,
+		"PageTitle":      fmt.Sprintf("@%s", profile.Username),
+		"CurrentUserID":  currentUserID,
+		"FollowerCount":  followerCount,
+		"FollowingCount": followingCount,
+		"IsFollowing":    isFollowing,
 	}
 
 	log.Printf("Rendering profile page for: %s", profile.Username)
